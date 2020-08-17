@@ -15,9 +15,9 @@ repos:
     rev: v1.1.9
     hooks:
       -   id: insert-license
-          files: \.go$ \.proto$
+          files: \.go$
           args:
           - --license-filepath
           - license-header.txt
           - --comment-style
-          - //
+          - /*| *| */
