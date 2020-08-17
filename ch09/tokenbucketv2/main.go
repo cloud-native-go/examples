@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -27,7 +28,7 @@ type Effector func(context.Context) (string, error)
 
 // Throttled wraps an Effector. It accepts the same parameters, plus a
 // "key" string that represents a caller identity. It returns the same,
-// plus a bool that's true if the call is throttled.
+// plus a bool that's true if the call is not throttled.
 type Throttled func(context.Context, string) (bool, string, error)
 
 type record struct {
@@ -51,7 +52,7 @@ func Throttle(e Effector, max uint, refill uint, d time.Duration) Throttled {
 			bucket[key] = &record{tokens: tokens, time: time.Now()}
 
 			str, err := e(ctx)
-			return false, str, err
+			return true, str, err
 		}
 
 		// Calculate how many tokens we now have based on the time
@@ -62,7 +63,7 @@ func Throttle(e Effector, max uint, refill uint, d time.Duration) Throttled {
 
 		// We don't have enough tokens. Return false.
 		if currentTokens < 1 {
-			return true, "", nil
+			return false, "", nil
 		}
 
 		// If we've refilled our bucket, we can restart the clock.
@@ -81,24 +82,24 @@ func Throttle(e Effector, max uint, refill uint, d time.Duration) Throttled {
 
 		str, err := e(ctx)
 
-		return false, str, err
+		return true, str, err
 	}
 }
 
-func doSomething(ctx context.Context) (string, error) {
-	return "something", nil
+func getHostname(ctx context.Context) (string, error) {
+	return os.Hostname()
 }
 
 func main() {
-	throttled := Throttle(doSomething, 2, 2, 500*time.Millisecond)
+	throttled := Throttle(getHostname, 2, 2, 500*time.Millisecond)
 
 	ticker := time.NewTicker(time.Millisecond * 200)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		throttled, msg, _ := throttled(context.Background(), "foo")
+		ok, msg, _ := throttled(context.Background(), "foo")
 
-		if throttled {
+		if ok {
 			fmt.Println("Throttled :(")
 		} else {
 			fmt.Println("OK! Got", msg)
