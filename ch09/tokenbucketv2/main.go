@@ -97,12 +97,10 @@ func main() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		ok, msg, _ := throttled(context.Background(), "foo")
-
-		if ok {
-			fmt.Println("Throttled :(")
-		} else {
+		if ok, msg, _ := throttled(context.Background(), "foo"); ok {
 			fmt.Println("OK! Got", msg)
+		} else {
+			fmt.Println("Throttled :(")
 		}
 	}
 }
