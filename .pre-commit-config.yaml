@@ -21,3 +21,11 @@ repos:
           - license-header.txt
           - --comment-style
           - /*| *| */
+
+      -   id: insert-license
+          files: \.proto$
+          args:
+          - --license-filepath
+          - license-header.txt
+          - --comment-style
+          - //
