@@ -87,17 +87,27 @@ func Throttle(e Effector, max uint, refill uint, d time.Duration) Throttled {
 }
 
 func getHostname(ctx context.Context) (string, error) {
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+
 	return os.Hostname()
 }
 
 func main() {
 	throttled := Throttle(getHostname, 2, 2, 500*time.Millisecond)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	ticker := time.NewTicker(time.Millisecond * 200)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if ok, msg, _ := throttled(context.Background(), "foo"); ok {
+		if ok, msg, err := throttled(ctx, "foo"); err != nil {
+			fmt.Println(err)
+			break
+		} else if ok {
 			fmt.Println("OK! Got", msg)
 		} else {
 			fmt.Println("Throttled :(")
