@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option go_package = "github.com/cloud-native-go/ch08/grpc/keyvalue";
+
+// GetRequest represents a request to the key-value store for the
+// value associated with a particular key
+message GetRequest {
+  string key = 1;
+}
+
+// GetResponse represents a response from the key-value store for a
+// particular value
+message GetResponse {
+  string value = 1;
+}
+
+// PutRequest represents a request to the key-value store for the
+// value associated with a particular key
+message PutRequest {
+  string key = 1;
+  string value = 2;
+}
+
+// PutResponse represents a response from the key-value store for a
+// Put action.
+message PutResponse {}
+
+// DeleteRequest represents a request to the key-value store to delete
+// the record associated with a key
+message DeleteRequest {
+  string key = 1;
+}
+
+// DeleteResponse represents a response from the key-value store for a
+// Delete action.
+message DeleteResponse {}
+
+service KeyValue {
+  rpc Get(GetRequest) returns (GetResponse);
+
+  rpc Put(PutRequest) returns (PutResponse);
+
+  rpc Delete(DeleteRequest) returns (PutResponse);
+}
