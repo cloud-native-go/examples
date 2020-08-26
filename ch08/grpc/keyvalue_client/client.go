@@ -33,8 +33,7 @@ func main() {
 	defer cancel()
 
 	// Set up a connection to the gRPC server
-	opts := []grpc.DialOption{
-		grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(time.Second)}
+	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
 	conn, err := grpc.DialContext(ctx, "localhost:50051", opts...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
