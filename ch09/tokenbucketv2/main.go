@@ -45,11 +45,9 @@ func Throttle(e Effector, max uint, refill uint, d time.Duration) Throttled {
 	return func(ctx context.Context, key string) (bool, string, error) {
 		r := bucket[key]
 
-		// This is a new entry! It passes. Naïvely assumes that
-		// Capacity >= TokensConsumedPerRequest.
+		// This is a new entry! It passes. Assumes that capacity >= 1.
 		if r == nil {
-			tokens := max - 1
-			bucket[key] = &record{tokens: tokens, time: time.Now()}
+			bucket[key] = &record{tokens: max - 1, time: time.Now()}
 
 			str, err := e(ctx)
 			return true, str, err
@@ -57,8 +55,8 @@ func Throttle(e Effector, max uint, refill uint, d time.Duration) Throttled {
 
 		// Calculate how many tokens we now have based on the time
 		// passed since the previous request.
-		refillEventsSince := uint(time.Since(r.time) / d)
-		tokensAddedSince := refill * refillEventsSince
+		refillsSince := uint(time.Since(r.time) / d)
+		tokensAddedSince := refill * refillsSince
 		currentTokens := r.tokens + tokensAddedSince
 
 		// We don't have enough tokens. Return false.
