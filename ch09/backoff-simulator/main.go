@@ -43,7 +43,7 @@ var currentBucketIndex int
 var requestEvents chan bool = make(chan bool)
 
 // The backoff function to use
-var backoffFunction func() string = WithDelayedBackoff
+var backoffFunction func() string = WithExponentialBackoffAndJitter
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -92,7 +92,7 @@ func WithNoBackoff() string {
 func WithDelayedBackoff() string {
 	res, err := SendRequest()
 	for err != nil {
-		time.Sleep(3 * time.Second)
+		time.Sleep(2500 * time.Millisecond)
 		res, err = SendRequest()
 	}
 
@@ -101,7 +101,7 @@ func WithDelayedBackoff() string {
 
 func WithExponentialBackoff() string {
 	res, err := SendRequest()
-	base, cap := time.Second, time.Minute*5
+	base, cap := time.Second, time.Minute
 
 	for backoff := base; err != nil; backoff <<= 1 {
 		if backoff > cap {
@@ -116,7 +116,7 @@ func WithExponentialBackoff() string {
 
 func WithExponentialBackoffAndJitter() string {
 	res, err := SendRequest()
-	base, cap := time.Second, time.Minute*5
+	base, cap := time.Second, time.Minute
 
 	for backoff := base; err != nil; backoff <<= 1 {
 		if backoff > cap {
