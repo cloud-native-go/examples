@@ -31,7 +31,7 @@ const instanceCount = 1000
 const trialDuration = 5 * time.Minute
 
 // How much time is allocated to each bucket
-const bucketWidth = 5 * time.Second
+const bucketWidth = 2 * time.Second
 
 // Slice to track request counts
 var requestBuckets []int
@@ -45,6 +45,13 @@ var requestEvents chan bool = make(chan bool)
 // The backoff function to use
 var backoffFunction func() string = WithExponentialBackoffAndJitter
 
+// Each instance will delay up to this amount of time
+var startupDelay = time.Second
+
+// Number of random startup delay rounds.
+// Should generate a nice peak at startupDelay / 2.
+var startupDelayTimes = 3
+
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -56,7 +63,18 @@ func main() {
 
 	log.Printf("Starting %d backoff processes\n", instanceCount)
 	for i := 0; i < instanceCount; i++ {
-		go backoffFunction()
+		go func() {
+			var delay time.Duration
+
+			startupDelayPart := int64(startupDelay) / int64(startupDelayTimes)
+			for i := 0; i < startupDelayTimes; i++ {
+				delay += time.Duration(rand.Int63n(startupDelayPart))
+			}
+
+			time.Sleep(delay)
+
+			backoffFunction()
+		}()
 	}
 	log.Printf("%d backoff processes started\n", instanceCount)
 
@@ -92,7 +110,7 @@ func WithNoBackoff() string {
 func WithDelayedBackoff() string {
 	res, err := SendRequest()
 	for err != nil {
-		time.Sleep(2500 * time.Millisecond)
+		time.Sleep(2000 * time.Millisecond)
 		res, err = SendRequest()
 	}
 
@@ -135,7 +153,7 @@ func WithExponentialBackoffAndJitter() string {
 // SendRequest simulates sending a request. It always returns an
 // error after a short delay.
 func SendRequest() (string, error) {
-	delay := time.Millisecond * 200
+	delay := time.Duration(rand.Int63n(100)+rand.Int63n(100)) * time.Millisecond
 
 	time.Sleep(delay / 2)
 	requestEvents <- true
