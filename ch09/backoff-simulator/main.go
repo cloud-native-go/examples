@@ -19,7 +19,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 )
@@ -28,7 +27,7 @@ import (
 const instanceCount = 1000
 
 // How long to run each trial
-const trialDuration = 5 * time.Minute
+const trialDuration = 4 * time.Minute
 
 // How much time is allocated to each bucket
 const bucketWidth = 2 * time.Second
@@ -46,28 +45,39 @@ var requestEvents chan bool = make(chan bool)
 var backoffFunction func() string = WithExponentialBackoffAndJitter
 
 // Each instance will delay up to this amount of time
-var startupDelay = time.Second
+var startupDelay = 2500 * time.Millisecond
 
 // Number of random startup delay rounds.
 // Should generate a nice peak at startupDelay / 2.
 var startupDelayTimes = 3
+
+// Just used to track the time the program started, for output purposes.
+var startTime = time.Now()
+
+func log(f string, i ...interface{}) {
+	since := time.Now().Sub(startTime)
+	t := time.Time{}.Add(since)
+	tf := t.Format("15:04:05")
+
+	fmt.Printf(tf+" "+f, i...)
+}
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	bucketCount := int(trialDuration / bucketWidth)
 	requestBuckets = make([]int, bucketCount)
-	log.Println("Bucket count:", bucketCount)
+	log("Bucket count: %d\n", bucketCount)
 
 	go CatchEvents()
 
-	log.Printf("Starting %d backoff processes\n", instanceCount)
+	log("Starting %d backoff processes\n", instanceCount)
 	for i := 0; i < instanceCount; i++ {
 		go func() {
 			var delay time.Duration
 
 			startupDelayPart := int64(startupDelay) / int64(startupDelayTimes)
-			for i := 0; i < startupDelayTimes; i++ {
+			for n := 0; n < startupDelayTimes; n++ {
 				delay += time.Duration(rand.Int63n(startupDelayPart))
 			}
 
@@ -76,7 +86,7 @@ func main() {
 			backoffFunction()
 		}()
 	}
-	log.Printf("%d backoff processes started\n", instanceCount)
+	log("%d backoff processes started\n", instanceCount)
 
 	for currentBucketIndex = 0; currentBucketIndex < bucketCount; currentBucketIndex++ {
 		time.Sleep(bucketWidth)
@@ -86,7 +96,7 @@ func main() {
 			i = bucketCount - 1
 		}
 
-		log.Printf("Point %d: %d data points\n", currentBucketIndex, requestBuckets[i])
+		log("Bucket %d: %d data points\n", currentBucketIndex, requestBuckets[i])
 	}
 
 	sum := 0
@@ -95,7 +105,7 @@ func main() {
 		fmt.Println(requestBuckets[i])
 	}
 
-	log.Println("Avg:", sum/bucketCount)
+	log("Avg: %d\n", sum/bucketCount)
 }
 
 func WithNoBackoff() string {
