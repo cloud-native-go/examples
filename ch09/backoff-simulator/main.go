@@ -30,7 +30,7 @@ const instanceCount = 1000
 const trialDuration = 4 * time.Minute
 
 // How much time is allocated to each bucket
-const bucketWidth = 2 * time.Second
+const bucketWidth = time.Second
 
 // Slice to track request counts
 var requestBuckets []int
@@ -38,29 +38,21 @@ var requestBuckets []int
 // The index of the current bucket
 var currentBucketIndex int
 
-// An "events" channel. It is used by SendRequest.
+// An "events" channel. It is used by sendRequest.
 var requestEvents chan bool = make(chan bool)
 
 // The backoff function to use
-var backoffFunction func() string = WithExponentialBackoffAndJitter
+var backoffFunction func() string = withExponentialBackoffAndJitter
 
 // Each instance will delay up to this amount of time
-var startupDelay = 2500 * time.Millisecond
+var startupDelay = bucketWidth
 
 // Number of random startup delay rounds.
 // Should generate a nice peak at startupDelay / 2.
-var startupDelayTimes = 3
+var startupDelayTimes = 1
 
 // Just used to track the time the program started, for output purposes.
 var startTime = time.Now()
-
-func log(f string, i ...interface{}) {
-	since := time.Now().Sub(startTime)
-	t := time.Time{}.Add(since)
-	tf := t.Format("15:04:05")
-
-	fmt.Printf(tf+" "+f, i...)
-}
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -69,7 +61,7 @@ func main() {
 	requestBuckets = make([]int, bucketCount)
 	log("Bucket count: %d\n", bucketCount)
 
-	go CatchEvents()
+	go catchEvents()
 
 	log("Starting %d backoff processes\n", instanceCount)
 	for i := 0; i < instanceCount; i++ {
@@ -108,27 +100,34 @@ func main() {
 	log("Avg: %d\n", sum/bucketCount)
 }
 
-func WithNoBackoff() string {
-	res, err := SendRequest()
+// Using withNoBackoff as the backoff function sends retries as quickly as
+// possible, with no backoff of any kind.
+func withNoBackoff() string {
+	res, err := sendRequest()
 	for err != nil {
-		res, err = SendRequest()
+		res, err = sendRequest()
 	}
 
 	return res
 }
 
-func WithDelayedBackoff() string {
-	res, err := SendRequest()
+// Using withDelayedBackoff as the backoff function sends retries after a
+// two-second delay.
+func withDelayedBackoff() string {
+	res, err := sendRequest()
 	for err != nil {
 		time.Sleep(2000 * time.Millisecond)
-		res, err = SendRequest()
+		res, err = sendRequest()
 	}
 
 	return res
 }
 
-func WithExponentialBackoff() string {
-	res, err := SendRequest()
+// Using withExponentialBackoff as the backoff function sends retries
+// initially with a 1-second delay, but doubling after each attempt to
+// a maximum delay of 1-minute.
+func withExponentialBackoff() string {
+	res, err := sendRequest()
 	base, cap := time.Second, time.Minute
 
 	for backoff := base; err != nil; backoff <<= 1 {
@@ -136,14 +135,17 @@ func WithExponentialBackoff() string {
 			backoff = cap
 		}
 		time.Sleep(backoff)
-		res, err = SendRequest()
+		res, err = sendRequest()
 	}
 
 	return res
 }
 
-func WithExponentialBackoffAndJitter() string {
-	res, err := SendRequest()
+// Using withExponentialBackoff as the backoff function sends retries
+// initially with a 1-second delay, but doubling after each attempt to
+// a maximum delay of 1-minute. Each backoff time gets an additional
+func withExponentialBackoffAndJitter() string {
+	res, err := sendRequest()
 	base, cap := time.Second, time.Minute
 
 	for backoff := base; err != nil; backoff <<= 1 {
@@ -154,15 +156,15 @@ func WithExponentialBackoffAndJitter() string {
 		jitter := rand.Int63n(int64(backoff * 3))
 		sleep := base + time.Duration(jitter)
 		time.Sleep(sleep)
-		res, err = SendRequest()
+		res, err = sendRequest()
 	}
 
 	return res
 }
 
-// SendRequest simulates sending a request. It always returns an
+// sendRequest simulates sending a request. It always returns an
 // error after a short delay.
-func SendRequest() (string, error) {
+func sendRequest() (string, error) {
 	delay := time.Duration(rand.Int63n(100)+rand.Int63n(100)) * time.Millisecond
 
 	time.Sleep(delay / 2)
@@ -172,10 +174,19 @@ func SendRequest() (string, error) {
 	return "", errors.New("")
 }
 
-// CatchEvents listens on the requestEvents channel and increments the
+// catchEvents listens on the requestEvents channel and increments the
 // appropriate bucket.
-func CatchEvents() {
+func catchEvents() {
 	for range requestEvents {
 		requestBuckets[currentBucketIndex]++
 	}
+}
+
+// log emits timestamped log output.
+func log(f string, i ...interface{}) {
+	since := time.Now().Sub(startTime)
+	t := time.Time{}.Add(since)
+	tf := t.Format("15:04:05")
+
+	fmt.Printf(tf+" "+f, i...)
 }
