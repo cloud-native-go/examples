@@ -44,12 +44,8 @@ var requestEvents chan bool = make(chan bool)
 // The backoff function to use
 var backoffFunction func() string = withExponentialBackoffAndJitter
 
-// Each instance will delay up to this amount of time
-var startupDelay = bucketWidth
-
-// Number of random startup delay rounds.
-// Should generate a nice peak at startupDelay / 2.
-var startupDelayTimes = 1
+// Each instance will randomly delay up to this duration
+var maxStartupDelay = bucketWidth
 
 // Just used to track the time the program started, for output purposes.
 var startTime = time.Now()
@@ -66,15 +62,8 @@ func main() {
 	log("Starting %d backoff processes\n", instanceCount)
 	for i := 0; i < instanceCount; i++ {
 		go func() {
-			var delay time.Duration
-
-			startupDelayPart := int64(startupDelay) / int64(startupDelayTimes)
-			for n := 0; n < startupDelayTimes; n++ {
-				delay += time.Duration(rand.Int63n(startupDelayPart))
-			}
-
+			delay := time.Duration(rand.Int63n(int64(maxStartupDelay)))
 			time.Sleep(delay)
-
 			backoffFunction()
 		}()
 	}
