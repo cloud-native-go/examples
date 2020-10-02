@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  # kvs:
+  #   image: kvs:pg
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - kvsNetwork
+
+  postgres:
+    image: postgres:11
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=hunter2
+      - POSTGRES_DB=kvs
+    # networks:
+    #   - kvsNetwork
+
+# networks:
+#   kvsNetwork:
