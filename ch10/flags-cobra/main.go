@@ -27,16 +27,24 @@ var strp string
 var intp int
 var boolp bool
 
+var flagsCmd = &cobra.Command{
+	Use:   "flags",
+	Short: "Experiment with flags",
+	Long:  "A simple flags experimentation command, built with Cobra.",
+	Run:   flagsFunc,
+}
+
 var rootCmd = &cobra.Command{
-	Use:  "flags [-b] [-n int] [-s string]",
-	Long: "A simple flags experimentation command, built with Cobra.",
-	Run:  flagsFunc,
+	Use:  "cng",
+	Long: "A super simple command.",
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&strp, "string", "s", "foo", "a string")
-	rootCmd.Flags().IntVarP(&intp, "number", "n", 42, "an integer")
-	rootCmd.Flags().BoolVarP(&boolp, "boolean", "b", false, "a boolean")
+	flagsCmd.Flags().StringVarP(&strp, "string", "s", "foo", "a string")
+	flagsCmd.Flags().IntVarP(&intp, "number", "n", 42, "an integer")
+	flagsCmd.Flags().BoolVarP(&boolp, "boolean", "b", false, "a boolean")
+
+	rootCmd.AddCommand(flagsCmd)
 }
 
 func flagsFunc(cmd *cobra.Command, args []string) {
