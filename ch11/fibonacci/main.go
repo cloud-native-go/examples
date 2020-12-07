@@ -29,7 +29,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout"
 	"go.opentelemetry.io/otel/exporters/trace/jaeger"
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -58,8 +57,6 @@ func parseArguments() (int, error) {
 }
 
 func createAndRegisterExporters() error {
-	var stdExporter export.SpanExporter
-
 	// Create and configure the stdout exporter
 	stdExporter, err := stdout.NewExporter(
 		stdout.WithPrettyPrint(),
