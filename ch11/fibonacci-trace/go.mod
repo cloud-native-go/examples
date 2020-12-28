@@ -1,4 +1,4 @@
-module github.com/cloud-native-go/ch11/fibonacci
+module github.com/cloud-native-go/ch11/fibonacci-trace
 
 go 1.15
 
