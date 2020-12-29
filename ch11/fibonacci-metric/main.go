@@ -39,24 +39,15 @@ const (
 	serviceName    = "fibonacci"
 )
 
-var requestsCount int64
+var requests metric.Int64Counter
+
+var labels = []label.KeyValue{
+	label.Key("application").String(serviceName),
+	label.Key("container_id").String(os.Getenv("HOSTNAME")),
+}
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-}
-
-func parseArguments() (int, error) {
-	args := os.Args[1:]
-	if len(args) == 0 {
-		return 0, fmt.Errorf("expected an int argument")
-	}
-
-	n, err := strconv.Atoi(args[0])
-	if err != nil {
-		return 0, fmt.Errorf("can't parse argument as integer: %w", err)
-	}
-
-	return n, nil
 }
 
 func main() {
@@ -69,10 +60,21 @@ func main() {
 	// Now we can register it as the otel meter provider.
 	otel.SetMeterProvider(promExporter.MeterProvider())
 
-	go updateMetrics(context.Background())
-	buildResultsCounterObserver()
+	if err := buildRequestsCounter(); err != nil {
+		log.Fatal(err)
+	}
+	if err := buildRuntimeObservers(); err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Println("Browse to localhost:3000?n=6")
+	go func() {
+		for {
+			log.Println(requestsCount)
+			time.Sleep(time.Second)
+		}
+	}()
+
+	log.Println("Browse to localhost:3000?n=6")
 
 	// Neat, huh?
 	http.Handle("/metrics", promExporter)
@@ -104,7 +106,70 @@ func fibHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, result)
 }
 
+func parseArguments() (int, error) {
+	args := os.Args[1:]
+	if len(args) == 0 {
+		return 0, fmt.Errorf("expected an int argument")
+	}
+
+	n, err := strconv.Atoi(args[0])
+	if err != nil {
+		return 0, fmt.Errorf("can't parse argument as integer: %w", err)
+	}
+
+	return n, nil
+}
+
+func buildRequestsCounter() error {
+	var err error
+
+	meter := otel.GetMeterProvider().Meter(serviceName)
+
+	requests, err = meter.NewInt64Counter("fibonacci_requests_total",
+		metric.WithDescription("Total number of Fibonacci requests."),
+	)
+
+	return err
+}
+
+func buildRuntimeObservers() error {
+	var err error
+	var m runtime.MemStats
+
+	meter := otel.GetMeterProvider().Meter(serviceName)
+
+	_, err = meter.NewInt64UpDownSumObserver("memory_usage_bytes",
+		func(_ context.Context, result metric.Int64ObserverResult) {
+			runtime.ReadMemStats(&m)
+			log.Println("memory_usage_bytes", int64(m.Sys))
+			result.Observe(int64(m.Sys), labels...)
+		},
+		metric.WithDescription("Amount of memory used."),
+		metric.WithUnit(unit.Bytes),
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = meter.NewInt64UpDownSumObserver("num_goroutines",
+		func(_ context.Context, result metric.Int64ObserverResult) {
+			log.Println("num_goroutines", int64(runtime.NumGoroutine()))
+			result.Observe(int64(runtime.NumGoroutine()), labels...)
+		},
+		metric.WithDescription("Number of running goroutines."),
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var requestsCount int64
+
 func Fibonacci(ctx context.Context, n int) chan int {
+	requests.Add(ctx, 1, labels...)
+
 	atomic.AddInt64(&requestsCount, 1)
 
 	ch := make(chan int)
@@ -121,49 +186,4 @@ func Fibonacci(ctx context.Context, n int) chan int {
 	}()
 
 	return ch
-}
-
-var metricLabels = []label.KeyValue{
-	label.Key("application").String(serviceName),
-	label.Key("container_id").String(os.Getenv("HOSTNAME")),
-}
-
-func buildResultsCounterObserver() {
-	callbackFunc := func(_ context.Context, result metric.Int64ObserverResult) {
-		result.Observe(requestsCount, metricLabels...)
-	}
-
-	meter := otel.GetMeterProvider().Meter(serviceName)
-
-	meter.NewInt64SumObserver("fibonacci_requests_total",
-		callbackFunc,
-		metric.WithDescription("Count of Fibonacci requests."),
-	)
-}
-
-func updateMetrics(ctx context.Context) {
-	meter := otel.GetMeterProvider().Meter(serviceName)
-
-	mem, _ := meter.NewInt64UpDownCounter("memory_usage_bytes",
-		metric.WithDescription("Amount of memory used."),
-		metric.WithUnit(unit.Bytes),
-	)
-	goroutines, _ := meter.NewInt64UpDownCounter("num_goroutines",
-		metric.WithDescription("Number of running goroutines."),
-	)
-
-	var m runtime.MemStats
-
-	for {
-		runtime.ReadMemStats(&m)
-
-		fmt.Println(m.Sys, runtime.NumGoroutine())
-
-		mMem := mem.Measurement(int64(m.Sys))
-		mGoroutines := goroutines.Measurement(int64(runtime.NumGoroutine()))
-
-		meter.RecordBatch(ctx, metricLabels, mMem, mGoroutines)
-
-		time.Sleep(5 * time.Second)
-	}
 }
