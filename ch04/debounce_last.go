@@ -19,6 +19,8 @@ func DebounceLast(circuit Circuit, d time.Duration) Circuit {
 			tickerc := ticker.C
 
 			go func() {
+				defer ticker.Stop()
+
 				for {
 					select {
 					case <-tickerc:
