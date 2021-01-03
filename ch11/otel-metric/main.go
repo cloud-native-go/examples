@@ -39,8 +39,11 @@ const (
 	serviceName    = "fibonacci"
 )
 
+// The requests counter instrument. As a synchronous instrument,
+// we'll need to keep it so we can use it later to record data.
 var requests metric.Int64Counter
 
+// Define our labels here so that we can easily reuse them.
 var labels = []label.KeyValue{
 	label.Key("application").String(serviceName),
 	label.Key("container_id").String(os.Getenv("HOSTNAME")),
@@ -123,8 +126,10 @@ func parseArguments() (int, error) {
 func buildRequestsCounter() error {
 	var err error
 
+	// Retrieve the meter from the meter provider.
 	meter := otel.GetMeterProvider().Meter(serviceName)
 
+	// Get an Int64Counter for a metric called "fibonacci_requests_total".
 	requests, err = meter.NewInt64Counter("fibonacci_requests_total",
 		metric.WithDescription("Total number of Fibonacci requests."),
 	)
