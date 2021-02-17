@@ -1,16 +1,16 @@
+# This is a multi-stage Dockerfile. The first part executes a build in a Go
+# container, and the second retrieves the binary from the build container and
+# inserts it into a "scratch" image.
+
 # Stage 1: Compile the binary in a containerized Golang environment
 #
-FROM golang:1.13 as build
+FROM golang:1.16 as build
 
 # Copy the source files from the host
-COPY . /go/src/kvs
+COPY . /src
 
 # Set the working directory to the same place we copied the code
-WORKDIR /go/src/kvs
-
-# Download the dependency code
-RUN go get github.com/gorilla/mux \
-    github.com/go-errors/errors
+WORKDIR /src
 
 # Build the binary!
 RUN CGO_ENABLED=0 GOOS=linux go build -o kvs
@@ -22,7 +22,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o kvs
 FROM scratch as image
 
 # Copy the binary from the build container
-COPY --from=build /go/src/kvs/kvs .
+COPY --from=build /src/kvs .
+
+# If you're using TLS, copy the .pem files too
+COPY --from=build /src/*.pem .
 
 # Tell Docker we'll be using port 8080
 EXPOSE 8080
