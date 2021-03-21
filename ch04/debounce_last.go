@@ -40,14 +40,13 @@ func DebounceLast(circuit Circuit, d time.Duration) Circuit {
 							m.Unlock()
 							return
 						}
+						m.Unlock()
 					case <-ctx.Done():
 						m.Lock()
 						result, err = "", ctx.Err()
 						m.Unlock()
 						return
 					}
-
-					m.Unlock()
 				}
 			}()
 		})
