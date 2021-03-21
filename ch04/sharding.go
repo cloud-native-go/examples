@@ -72,14 +72,27 @@ func (m ShardedMap) Set(key string, value interface{}) {
 // Keys returns a list of all keys in the sharded map.
 func (m ShardedMap) Keys() []string {
 	keys := make([]string, 0)
+	mutex := sync.Mutex{}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(m))
 
 	for _, shard := range m {
-		for key := range shard.m {
-			shard.RLock()
-			defer shard.RUnlock()
-			keys = append(keys, key)
-		}
+		go func(s *Shard) {
+			s.RLock()
+
+			for key, _ := range s.m {
+				mutex.Lock()
+				keys = append(keys, key)
+				mutex.Unlock()
+			}
+
+			s.RUnlock()
+			wg.Done()
+		}(shard)
 	}
 
-	return keys
+	wg.Wait() // Block until all reads are done
+
+	return keys // Return combined keys slice
 }
