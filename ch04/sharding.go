@@ -81,7 +81,7 @@ func (m ShardedMap) Keys() []string {
 		go func(s *Shard) {
 			s.RLock()
 
-			for key, _ := range s.m {
+			for key := range s.m {
 				mutex.Lock()
 				keys = append(keys, key)
 				mutex.Unlock()
