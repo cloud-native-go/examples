@@ -2,20 +2,30 @@ package ch04
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
 func DebounceFirst(circuit Circuit, d time.Duration) Circuit {
 	var threshold time.Time
-	var cResult string
-	var cError error
+	var result string
+	var err error
+	var m sync.Mutex
 
 	return func(ctx context.Context) (string, error) {
-		if threshold.Before(time.Now()) {
-			cResult, cError = circuit(ctx)
+		m.Lock()
+
+		defer func() {
+			threshold = time.Now().Add(d)
+			m.Unlock()
+		}()
+
+		if time.Now().Before(threshold) {
+			return result, err
 		}
 
-		threshold = time.Now().Add(d)
-		return cResult, cError
+		result, err = circuit(ctx)
+
+		return result, err
 	}
 }

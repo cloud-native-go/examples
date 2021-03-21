@@ -69,29 +69,17 @@ func (m ShardedMap) Set(key string, value interface{}) {
 	shard.m[key] = value
 }
 
-// Keys returns a list of all keys in the sharded map. It uses len(shards)
-// goroutines to concurrently establish read locks on all shards; its output
-// order can vary between executions.
+// Keys returns a list of all keys in the sharded map.
 func (m ShardedMap) Keys() []string {
 	keys := make([]string, 0)
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(m))
-
 	for _, shard := range m {
-		go func(s *Shard) {
-			s.RLock()
-			defer wg.Done()
-			defer s.RUnlock()
-
-			for key, _ := range s.m {
-				keys = append(keys, key)
-			}
-
-		}(shard)
+		for key := range shard.m {
+			shard.RLock()
+			defer shard.RUnlock()
+			keys = append(keys, key)
+		}
 	}
-
-	wg.Wait()
 
 	return keys
 }
