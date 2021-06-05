@@ -86,5 +86,5 @@ func (l *TestTransactionLogger) ReadEvents() (<-chan core.Event, <-chan error) {
 }
 
 func NewTestTransactionLogger() (core.TransactionLogger, error) {
-	return &TestTransactionLogger{}, nil
+	return TestTransactionLogger{}, nil
 }
