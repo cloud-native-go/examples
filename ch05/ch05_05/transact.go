@@ -140,7 +140,7 @@ func (l *TransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 
 			uv, err := url.QueryUnescape(e.Value)
 			if err != nil {
-				outError <- fmt.Errorf("vaalue decoding failure: %w", err)
+				outError <- fmt.Errorf("value decoding failure: %w", err)
 				return
 			}
 
