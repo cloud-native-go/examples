@@ -106,7 +106,7 @@ func (l *TransactionLogger) Wait() {
 }
 
 func (l *TransactionLogger) Close() error {
-	l.wg.Wait()
+	l.Wait()
 
 	if l.events != nil {
 		close(l.events) // Terminates Run loop and goroutine
