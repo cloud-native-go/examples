@@ -20,7 +20,7 @@ func EmulateTransientError(ctx context.Context) (string, error) {
 	}
 }
 
-func RetryTest(t *testing.T) {
+func TestRetry(t *testing.T) {
 	ctx := context.Background()
 	r := Retry(EmulateTransientError, 5, 2*time.Second)
 	res, err := r(ctx)
