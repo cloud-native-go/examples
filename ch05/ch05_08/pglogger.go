@@ -77,6 +77,8 @@ func (l *PostgresTransactionLogger) Run() {
 			if err != nil {
 				errors <- err
 			}
+			
+			l.wg.Done()
 		}
 	}()
 }
