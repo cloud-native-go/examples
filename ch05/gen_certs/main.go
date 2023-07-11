@@ -1,5 +1,8 @@
+//go:build ignore
+// +build ignore
+
 /*
- * Copyright 2020 Matthew A. Titmus
+ * Copyright 2023 Matthew A. Titmus
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +20,6 @@
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
-// +build ignore
 
 // Generate a self-signed X.509 certificate for a TLS server. Outputs to
 // 'cert.pem' and 'key.pem' and will overwrite existing files.
