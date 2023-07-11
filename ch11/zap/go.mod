@@ -1,6 +1,6 @@
 module main
 
-go 1.15
+go 1.20
 
 require (
 	go.uber.org/zap v1.16.0

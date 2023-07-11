@@ -1,6 +1,6 @@
 module github.com/cloud-native-go/examples/ch08/hexarch
 
-go 1.14
+go 1.20
 
 require (
 	github.com/go-errors/errors v1.1.1
