@@ -1,6 +1,6 @@
 module github.com/cloud-native-go/ch08/hashicorp-plugin
 
-go 1.14
+go 1.20
 
 require (
 	github.com/hashicorp/go-hclog v0.14.1

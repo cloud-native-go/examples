@@ -1,6 +1,6 @@
 module kvs
 
-go 1.15
+go 1.20
 
 require (
 	github.com/go-errors/errors v1.1.1
