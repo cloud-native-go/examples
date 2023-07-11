@@ -1,32 +1,32 @@
 repos:
-  - repo: git://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-merge-conflict
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-merge-conflict
 
-  - repo: git://github.com/dnephin/pre-commit-golang
-    rev: v0.3.5
-    hooks:
-      - id: go-fmt
-      - id: go-imports
+- repo: https://github.com/dnephin/pre-commit-golang
+  rev: v0.5.1
+  hooks:
+    - id: go-fmt
+    - id: go-imports
 
-  - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.1.9
-    hooks:
-      -   id: insert-license
-          files: \.go$
-          args:
-          - --license-filepath
-          - license-header.txt
-          - --comment-style
-          - /*| *| */
+- repo: https://github.com/Lucas-C/pre-commit-hooks
+  rev: v1.5.1
+  hooks:
+    -   id: insert-license
+        files: \.go$
+        args:
+        - --license-filepath
+        - license-header.txt
+        - --comment-style
+        - /*| *| */
 
-      -   id: insert-license
-          files: \.proto$
-          args:
-          - --license-filepath
-          - license-header.txt
-          - --comment-style
-          - //
+    -   id: insert-license
+        files: \.proto$
+        args:
+        - --license-filepath
+        - license-header.txt
+        - --comment-style
+        - //

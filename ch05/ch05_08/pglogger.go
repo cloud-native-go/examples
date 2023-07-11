@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Matthew A. Titmus
+ * Copyright 2023 Matthew A. Titmus
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ func (l *PostgresTransactionLogger) Run() {
 			if err != nil {
 				errors <- err
 			}
-			
+
 			l.wg.Done()
 		}
 	}()
