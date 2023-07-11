@@ -15,18 +15,18 @@ repos:
 - repo: https://github.com/Lucas-C/pre-commit-hooks
   rev: v1.5.1
   hooks:
-    -   id: insert-license
-        files: \.go$
-        args:
-        - --license-filepath
-        - license-header.txt
-        - --comment-style
-        - /*| *| */
+    - id: insert-license
+      files: \.go$
+      args:
+      - --license-filepath
+      - license-header.txt
+      - --comment-style
+      - /*| *| */
 
-    -   id: insert-license
-        files: \.proto$
-        args:
-        - --license-filepath
-        - license-header.txt
-        - --comment-style
-        - //
+    - id: insert-license
+      files: \.proto$
+      args:
+      - --license-filepath
+      - license-header.txt
+      - --comment-style
+      - //
