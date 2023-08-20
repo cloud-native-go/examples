@@ -7,50 +7,40 @@ import (
 )
 
 func DebounceLast(circuit Circuit, d time.Duration) Circuit {
-	var threshold time.Time = time.Now()
-	var ticker *time.Ticker
-	var result string
-	var err error
-	var once sync.Once
 	var m sync.Mutex
+	var timer *time.Timer
+	var cctx context.Context
+	var cancel context.CancelFunc
 
 	return func(ctx context.Context) (string, error) {
 		m.Lock()
-		defer m.Unlock()
 
-		threshold = time.Now().Add(d)
+		if timer != nil {
+			timer.Stop()
+			cancel()
+		}
 
-		once.Do(func() {
-			ticker = time.NewTicker(time.Millisecond * 100)
+		cctx, cancel = context.WithCancel(ctx)
+		ch := make(chan struct {
+			result string
+			err    error
+		}, 1)
 
-			go func() {
-				defer func() {
-					m.Lock()
-					ticker.Stop()
-					once = sync.Once{}
-					m.Unlock()
-				}()
-
-				for {
-					select {
-					case <-ticker.C:
-						m.Lock()
-						if time.Now().After(threshold) {
-							result, err = circuit(ctx)
-							m.Unlock()
-							return
-						}
-						m.Unlock()
-					case <-ctx.Done():
-						m.Lock()
-						result, err = "", ctx.Err()
-						m.Unlock()
-						return
-					}
-				}
-			}()
+		timer = time.AfterFunc(d, func() {
+			r, e := circuit(cctx)
+			ch <- struct {
+				result string
+				err    error
+			}{r, e}
 		})
 
-		return result, err
+		m.Unlock()
+
+		select {
+		case res := <-ch:
+			return res.result, res.err
+		case <-cctx.Done():
+			return "", cctx.Err()
+		}
 	}
 }

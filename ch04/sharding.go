@@ -1,98 +1,99 @@
 package ch04
 
 import (
-	"crypto/sha1"
+	"hash/fnv"
+	"reflect"
 	"sync"
 )
 
-type Shard struct {
-	sync.RWMutex
-	m map[string]interface{}
+type Shard[K comparable, V any] struct {
+	sync.RWMutex         // Compose from sync.RWMutex
+	items        map[K]V // m contains the shard's data
 }
 
-type ShardedMap []*Shard
+type ShardedMap[K comparable, V any] []*Shard[K, V]
 
 // NewShardedMap creates and initializes a new ShardedMap with the specified
 // number of shards.
-func NewShardedMap(nshards int) ShardedMap {
-	shards := make([]*Shard, nshards)
+func NewShardedMap[K comparable, V any](nshards int) ShardedMap[K, V] {
+	shards := make([]*Shard[K, V], nshards) // Initialize a *Shards slice
 
 	for i := 0; i < nshards; i++ {
-		shard := make(map[string]interface{})
-		shards[i] = &Shard{m: shard}
+		shard := make(map[K]V)
+		shards[i] = &Shard[K, V]{items: shard} // A ShardedMap IS a slice!
 	}
 
 	return shards
 }
 
 // getShardIndex accepts a key and returns a value in 0..N-1, where N is
-// the number of shards. As currently written the hash algorithm only works
-// correctly for up to 255 shards.
-func (m ShardedMap) getShardIndex(key string) int {
-	hash := sha1.Sum([]byte(key))
-
-	// Grab an arbitrary byte and mod it by the number of shards
-	return int(hash[17]) % len(m)
+// the number of shards.
+func (m ShardedMap[K, V]) getShardIndex(key K) int {
+	str := reflect.ValueOf(key).String() // Get string representation of key
+	hash := fnv.New32a()                 // Get a hash implementation from "hash/fnv"
+	hash.Write([]byte(str))              // Write bytes to the hash
+	sum := int(hash.Sum32())             // Get the resulting checksum
+	return sum % len(m)                  // Mod by len(m) to get index
 }
 
 // getShard accepts a key and returns a pointer to its corresponding Shard.
-func (m ShardedMap) getShard(key string) *Shard {
+func (m ShardedMap[K, V]) getShard(key K) *Shard[K, V] {
 	index := m.getShardIndex(key)
 	return m[index]
 }
 
 // Delete removes a value from the map. If key doesn't exist in the map,
 // this method is a no-op.
-func (m ShardedMap) Delete(key string) {
+func (m ShardedMap[K, V]) Delete(key K) {
 	shard := m.getShard(key)
 	shard.Lock()
 	defer shard.Unlock()
 
-	delete(shard.m, key)
+	delete(shard.items, key)
 }
 
 // Get retrieves and returns a value from the map. If the value doesn't exist,
 // nil is returned.
-func (m ShardedMap) Get(key string) interface{} {
+func (m ShardedMap[K, V]) Get(key K) V {
 	shard := m.getShard(key)
 	shard.RLock()
 	defer shard.RUnlock()
 
-	return shard.m[key]
+	return shard.items[key]
 }
 
-func (m ShardedMap) Set(key string, value interface{}) {
+func (m ShardedMap[K, V]) Set(key K, value V) {
 	shard := m.getShard(key)
 	shard.Lock()
 	defer shard.Unlock()
 
-	shard.m[key] = value
+	shard.items[key] = value
 }
 
 // Keys returns a list of all keys in the sharded map.
-func (m ShardedMap) Keys() []string {
-	keys := make([]string, 0)
-	mutex := sync.Mutex{}
+func (m ShardedMap[K, V]) Keys() []K {
+	var keys []K         // Declare an empty keys slice
+	var mutex sync.Mutex // Mutex for write safety to keys
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(m))
+	var wg sync.WaitGroup // Create a wait group and add a
+	wg.Add(len(m))        // wait value for each slice
 
-	for _, shard := range m {
-		go func(s *Shard) {
-			s.RLock()
+	for _, shard := range m { // Run a goroutine for each slice in m
+		go func(s *Shard[K, V]) {
+			s.RLock() // Establish a read lock on s
 
-			for key := range s.m {
+			defer wg.Done()   // Release of the read lock
+			defer s.RUnlock() // Tell the WaitGroup it's done
+
+			for key, _ := range s.items { // Get the slice's keys
 				mutex.Lock()
 				keys = append(keys, key)
 				mutex.Unlock()
 			}
-
-			s.RUnlock()
-			wg.Done()
 		}(shard)
 	}
 
-	wg.Wait() // Block until all reads are done
+	wg.Wait() // Block until all goroutines are done
 
 	return keys // Return combined keys slice
 }

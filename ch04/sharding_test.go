@@ -10,7 +10,7 @@ import (
 func TestShardingGetShardIndex(t *testing.T) {
 	const BUCKETS = 17
 
-	sMap := NewShardedMap(BUCKETS)
+	sMap := NewShardedMap[string, int](BUCKETS)
 	counts := make([]int, BUCKETS)
 
 	keys := []string{"A", "B", "C", "D", "E"}
@@ -29,7 +29,7 @@ func TestShardingGetShardIndex(t *testing.T) {
 func TestShardingSetAndGet(t *testing.T) {
 	const BUCKETS = 17
 
-	sMap := NewShardedMap(BUCKETS)
+	sMap := NewShardedMap[string, int](BUCKETS)
 
 	truthMap := map[string]int{
 		"alpha":   1,
@@ -57,7 +57,7 @@ func TestShardingSetAndGet(t *testing.T) {
 func TestShardingKeys(t *testing.T) {
 	const BUCKETS = 17
 
-	sMap := NewShardedMap(BUCKETS)
+	sMap := NewShardedMap[string, int](BUCKETS)
 
 	truthMap := map[string]int{
 		"alpha":   1,
@@ -94,7 +94,7 @@ func TestShardingKeys(t *testing.T) {
 func TestShardingDelete(t *testing.T) {
 	const BUCKETS = 17
 
-	sMap := NewShardedMap(BUCKETS)
+	sMap := NewShardedMap[string, int](BUCKETS)
 
 	truthMap := map[string]int{
 		"alpha":   1,

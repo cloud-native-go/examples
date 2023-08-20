@@ -35,8 +35,7 @@ import (
 )
 
 const (
-	jaegerEndpoint = "http://localhost:14268/api/traces"
-	serviceName    = "fibonacci"
+	serviceName = "fibonacci"
 )
 
 // The requests counter instrument. As a synchronous instrument,
