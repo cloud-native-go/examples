@@ -30,17 +30,14 @@ func DebounceFirst(circuit Circuit, d time.Duration) Circuit {
 
 	return func(ctx context.Context) (string, error) {
 		m.Lock()
-
-		defer func() {
-			threshold = time.Now().Add(d)
-			m.Unlock()
-		}()
+		defer m.Unlock()
 
 		if time.Now().Before(threshold) {
 			return result, err
 		}
 
 		result, err = circuit(ctx)
+		threshold = time.Now().Add(d)
 
 		return result, err
 	}
