@@ -1,6 +1,6 @@
 module github.com/cloud-native-go/ch11/otel-trace
 
-go 1.20
+go 1.21
 
 require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.16.0

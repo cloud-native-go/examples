@@ -1,6 +1,6 @@
 module github.com/cloud-native-go/ch11/fibonacci-metric
 
-go 1.20
+go 1.21
 
 require (
 	go.opentelemetry.io/otel v0.15.0
