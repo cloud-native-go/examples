@@ -9,7 +9,7 @@ import (
 var cache *lru.Cache[int, string]
 
 func init() {
-	cache, _ = lru.NewWithEvict[int, string](2,
+	cache, _ = lru.NewWithEvict(2,
 		func(key int, value string) {
 			fmt.Printf("Evicted: key=%d value=%s\n", key, value)
 		},
