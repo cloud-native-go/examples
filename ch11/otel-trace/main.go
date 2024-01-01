@@ -37,23 +37,34 @@ import (
 )
 
 const (
-	jaegerEndpoint = "localhost:4317"
 	serviceName    = "Fibonacci"
+	serviceVersion = "0.0.2"
+
+	jaegerEndpoint = "localhost:4317"
 )
 
 var tracer trace.Tracer
 
-func newExporters(ctx context.Context) ([]sdktrace.SpanExporter, error) {
-	var exporters []sdktrace.SpanExporter
+func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceName(serviceName),
+		semconv.ServiceVersion(serviceVersion),
+	)
+
+	// Ensure default SDK resources and the required service name are set
+	res, err := resource.Merge(resource.Default(), res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge resources: %w", err)
+	}
 
 	// Create and configure the stdout exporter
 	stdExporter, err := stdouttrace.New(
 		stdouttrace.WithPrettyPrint(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build StdoutExporter: %w", err)
 	}
-	exporters = append(exporters, stdExporter)
 
 	// Create and configure the OTLP exporter for Jaeger
 	otlpExporter, err := otlptracegrpc.New(
@@ -62,43 +73,22 @@ func newExporters(ctx context.Context) ([]sdktrace.SpanExporter, error) {
 		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build OtlpExporter: %w", err)
 	}
-	exporters = append(exporters, otlpExporter)
 
-	return exporters, nil
-}
-
-func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
-	// Ensure default SDK resources and the required service name are set
-	r, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(serviceName),
-		),
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(res),
+		sdktrace.WithBatcher(stdExporter),
+		sdktrace.WithBatcher(otlpExporter),
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	exporters, err := newExporters(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build TraceProvider: %w", err)
-	}
-
-	opts := []sdktrace.TracerProviderOption{sdktrace.WithResource(r)}
-	for _, e := range exporters {
-		opts = append(opts, sdktrace.WithBatcher(e))
-	}
 
 	// Create and configure the TracerProvider exporter using the
 	// newly-created exporters.
-	return sdktrace.NewTracerProvider(opts...), nil
+	return tp, nil
 }
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
 	tp, err := newTracerProvider(ctx)
@@ -106,6 +96,9 @@ func main() {
 		slog.ErrorContext(ctx, err.Error())
 		return
 	}
+
+	// Handle shutdown properly so nothing leaks.
+	defer func() { tp.Shutdown(ctx) }()
 
 	// Registers tp as the global trace provider to allow
 	// auto-instrumentation to access it
@@ -132,7 +125,6 @@ func fibHandler(w http.ResponseWriter, req *http.Request) {
 	sp := trace.SpanFromContext(ctx)
 
 	args := req.URL.Query()["n"]
-
 	if len(args) != 1 {
 		msg := "wrong number of arguments"
 		sp.SetStatus(codes.Error, msg)
@@ -157,14 +149,14 @@ func fibHandler(w http.ResponseWriter, req *http.Request) {
 
 	sp.SetAttributes(attribute.Int("fibonacci.result", result))
 
+	// Finally, send the result back in the response.
 	fmt.Fprintln(w, result)
 }
 
 func Fibonacci(ctx context.Context, n int) int {
 	ctx, sp := tracer.Start(ctx,
 		"fibonacci",
-		trace.WithAttributes(
-			attribute.Int("fibonacci.n", n)),
+		trace.WithAttributes(attribute.Int("fibonacci.n", n)),
 	)
 	defer sp.End()
 
