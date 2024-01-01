@@ -37,23 +37,19 @@ import (
 )
 
 const (
-	serviceName    = "Fibonacci"
-	serviceVersion = "0.0.2"
-
 	jaegerEndpoint = "localhost:4317"
+	serviceName    = "Fibonacci"
 )
 
-var tracer trace.Tracer
-
 func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
-	res := resource.NewWithAttributes(
-		semconv.SchemaURL,
-		semconv.ServiceName(serviceName),
-		semconv.ServiceVersion(serviceVersion),
+	// Ensure default SDK resources and service name are set
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName(serviceName),
+		),
 	)
-
-	// Ensure default SDK resources and the required service name are set
-	res, err := resource.Merge(resource.Default(), res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge resources: %w", err)
 	}
@@ -76,14 +72,14 @@ func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
 		return nil, fmt.Errorf("failed to build OtlpExporter: %w", err)
 	}
 
+	// Create and configure the TracerProvider exporter using the
+	// newly-created exporters.
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(res),
 		sdktrace.WithBatcher(stdExporter),
 		sdktrace.WithBatcher(otlpExporter),
 	)
 
-	// Create and configure the TracerProvider exporter using the
-	// newly-created exporters.
 	return tp, nil
 }
 
@@ -103,9 +99,6 @@ func main() {
 	// Registers tp as the global trace provider to allow
 	// auto-instrumentation to access it
 	otel.SetTracerProvider(tp)
-
-	// Finally, set the tracer that can be used for this package.
-	tracer = tp.Tracer(serviceName)
 
 	fmt.Println("Browse to localhost:3000?n=6")
 
@@ -154,8 +147,9 @@ func fibHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func Fibonacci(ctx context.Context, n int) int {
-	ctx, sp := tracer.Start(ctx,
-		"fibonacci",
+	ctx, sp := otel.GetTracerProvider().Tracer(serviceName).Start(
+		ctx,
+		"Fibonacci",
 		trace.WithAttributes(attribute.Int("fibonacci.n", n)),
 	)
 	defer sp.End()
