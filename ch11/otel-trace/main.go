@@ -25,7 +25,9 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -41,26 +43,34 @@ const (
 
 var tracer trace.Tracer
 
-func createAndRegisterExporters(ctx context.Context) error {
+func newExporters(ctx context.Context) ([]sdktrace.SpanExporter, error) {
+	var exporters []sdktrace.SpanExporter
+
 	// Create and configure the stdout exporter
 	stdExporter, err := stdouttrace.New(
 		stdouttrace.WithPrettyPrint(),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	exporters = append(exporters, stdExporter)
 
-	// Create and configure the Jaeger exporter
+	// Create and configure the OTLP exporter for Jaeger
 	otlpExporter, err := otlptracegrpc.New(
 		ctx,
 		otlptracegrpc.WithEndpoint(jaegerEndpoint),
 		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	exporters = append(exporters, otlpExporter)
 
-	// Ensure default SDK resources and the required service name are set.
+	return exporters, nil
+}
+
+func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	// Ensure default SDK resources and the required service name are set
 	r, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
@@ -69,35 +79,40 @@ func createAndRegisterExporters(ctx context.Context) error {
 		),
 	)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	exporters, err := newExporters(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build TraceProvider: %w", err)
+	}
+
+	opts := []sdktrace.TracerProviderOption{sdktrace.WithResource(r)}
+	for _, e := range exporters {
+		opts = append(opts, sdktrace.WithBatcher(e))
 	}
 
 	// Create and configure the TracerProvider exporter using the
 	// newly-created exporters.
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(stdExporter),
-		sdktrace.WithBatcher(otlpExporter),
-		sdktrace.WithResource(r),
-	)
-
-	// Now we can register tp as the otel trace provider.
-	// otel.SetTracerProvider(tp)
-
-	// Finally, set the tracer that can be used for this package.
-	tracer = tp.Tracer(serviceName)
-
-	return nil
+	return sdktrace.NewTracerProvider(opts...), nil
 }
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	err := createAndRegisterExporters(ctx)
+	tp, err := newTracerProvider(ctx)
 	if err != nil {
 		slog.ErrorContext(ctx, err.Error())
 		return
 	}
+
+	// Registers tp as the global trace provider to allow
+	// auto-instrumentation to access it
+	otel.SetTracerProvider(tp)
+
+	// Finally, set the tracer that can be used for this package.
+	tracer = tp.Tracer(serviceName)
 
 	fmt.Println("Browse to localhost:3000?n=6")
 
@@ -110,58 +125,57 @@ func main() {
 }
 
 func fibHandler(w http.ResponseWriter, req *http.Request) {
-	var err error
-	var n int
-
 	ctx := req.Context()
 
 	// Get the Span associated with the current context and
 	// attach the parameter and result as attributes.
 	sp := trace.SpanFromContext(ctx)
 
-	if len(req.URL.Query()["n"]) != 1 {
-		err = fmt.Errorf("wrong number of arguments")
-	} else {
-		n, err = strconv.Atoi(req.URL.Query()["n"][0])
-	}
+	args := req.URL.Query()["n"]
 
-	if err != nil {
-		http.Error(w, "couldn't parse index n", http.StatusBadRequest)
+	if len(args) != 1 {
+		msg := "wrong number of arguments"
+		sp.SetStatus(codes.Error, msg)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
-	sp.SetAttributes(attribute.Int("parameter", n))
+	sp.SetAttributes(attribute.String("fibonacci.argument", args[0]))
+
+	n, err := strconv.Atoi(args[0])
+	if err != nil {
+		msg := fmt.Sprintf("couldn't parse index n: %s", err.Error())
+		sp.SetStatus(codes.Error, msg)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	sp.SetAttributes(attribute.Int("fibonacci.parameter", n))
 
 	// Call the child function, passing it the request context.
-	result := <-Fibonacci(ctx, n)
+	result := Fibonacci(ctx, n)
 
-	sp.SetAttributes(attribute.Int("result", result))
+	sp.SetAttributes(attribute.Int("fibonacci.result", result))
 
 	fmt.Fprintln(w, result)
 }
 
-func Fibonacci(ctx context.Context, n int) chan int {
-	ch := make(chan int)
+func Fibonacci(ctx context.Context, n int) int {
+	ctx, sp := tracer.Start(ctx,
+		"fibonacci",
+		trace.WithAttributes(
+			attribute.Int("fibonacci.n", n)),
+	)
+	defer sp.End()
 
-	go func() {
-		ctx, sp := tracer.Start(ctx,
-			"fibonacci",
-			trace.WithAttributes(
-				attribute.Int("n", n)),
-		)
-		defer sp.End()
+	result := 1
+	if n > 1 {
+		a := Fibonacci(ctx, n-1)
+		b := Fibonacci(ctx, n-2)
+		result = a + b
+	}
 
-		result := 1
-		if n > 1 {
-			a := Fibonacci(ctx, n-1)
-			b := Fibonacci(ctx, n-2)
-			result = <-a + <-b
-		}
+	sp.SetAttributes(attribute.Int("fibonacci.result", result))
 
-		sp.SetAttributes(attribute.Int("result", result))
-
-		ch <- result
-	}()
-
-	return ch
+	return result
 }
