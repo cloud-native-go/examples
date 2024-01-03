@@ -1,4 +1,4 @@
-module github.com/cloud-native-go/ch11/fibonacci-metric
+module github.com/cloud-native-go/ch11/otel-metric
 
 go 1.21
 
