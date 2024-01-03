@@ -24,14 +24,13 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"sync/atomic"
-	"time"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/metric/prometheus"
-	"go.opentelemetry.io/otel/label"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/unit"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
 const (
@@ -43,9 +42,9 @@ const (
 var requests metric.Int64Counter
 
 // Define our labels here so that we can easily reuse them.
-var labels = []label.KeyValue{
-	label.Key("application").String(serviceName),
-	label.Key("container_id").String(os.Getenv("HOSTNAME")),
+var attributes = []attribute.KeyValue{
+	attribute.Key("application").String(serviceName),
+	attribute.Key("container_id").String(os.Getenv("HOSTNAME")),
 }
 
 func init() {
@@ -53,33 +52,40 @@ func init() {
 }
 
 func main() {
-	// Create and configure the Prometheus exporter
-	promExporter, err := prometheus.NewExportPipeline(prometheus.Config{})
+	ctx := context.Background()
+
+	// The exporter embeds a default OpenTelemetry Reader and
+	// implements prometheus.Collector, allowing it to be used as
+	// both a Reader and Collector.
+	exporter, err := prometheus.New()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Now we can register it as the otel meter provider.
-	otel.SetMeterProvider(promExporter.MeterProvider())
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
+	defer provider.Shutdown(ctx)
 
-	if err := buildRequestsCounter(); err != nil {
+	meter := provider.Meter(serviceName)
+
+	if err := buildRequestsCounter(meter); err != nil {
 		log.Fatal(err)
 	}
-	if err := buildRuntimeObservers(); err != nil {
+	if err := buildRuntimeObservers(meter); err != nil {
 		log.Fatal(err)
 	}
 
-	go func() {
-		for {
-			log.Println(requestsCount)
-			time.Sleep(time.Second)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		log.Println(requestsCount)
+	// 		time.Sleep(time.Second)
+	// 	}
+	// }()
 
 	log.Println("Browse to localhost:3000?n=6")
 
 	// Neat, huh?
-	http.Handle("/metrics", promExporter)
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/", http.HandlerFunc(fibHandler))
 
 	log.Fatal(http.ListenAndServe(":3000", nil))
@@ -122,46 +128,51 @@ func parseArguments() (int, error) {
 	return n, nil
 }
 
-func buildRequestsCounter() error {
+func buildRequestsCounter(meter metric.Meter) error {
 	var err error
 
-	// Retrieve the meter from the meter provider.
-	meter := otel.GetMeterProvider().Meter(serviceName)
-
 	// Get an Int64Counter for a metric called "fibonacci_requests_total".
-	requests, err = meter.NewInt64Counter("fibonacci_requests_total",
+	requests, err = meter.Int64Counter("fibonacci_requests_total",
 		metric.WithDescription("Total number of Fibonacci requests."),
 	)
 
 	return err
 }
 
-func buildRuntimeObservers() error {
+func buildRuntimeObservers(meter metric.Meter) error {
 	var err error
 	var m runtime.MemStats
 
-	meter := otel.GetMeterProvider().Meter(serviceName)
-
-	_, err = meter.NewInt64UpDownSumObserver("memory_usage_bytes",
+	_, err = meter.Int64UpDownSumObserver("memory_usage_bytes",
 		func(_ context.Context, result metric.Int64ObserverResult) {
 			runtime.ReadMemStats(&m)
 			log.Println("memory_usage_bytes", int64(m.Sys))
-			result.Observe(int64(m.Sys), labels...)
+			result.Observe(int64(m.Sys), metric.WithAttributes(attributes...))
 		},
 		metric.WithDescription("Amount of memory used."),
-		metric.WithUnit(unit.Bytes),
+		metric.WithUnit("By"),
 	)
 	if err != nil {
 		return err
 	}
 
-	_, err = meter.NewInt64UpDownSumObserver("num_goroutines",
-		func(_ context.Context, result metric.Int64ObserverResult) {
-			log.Println("num_goroutines", int64(runtime.NumGoroutine()))
-			result.Observe(int64(runtime.NumGoroutine()), labels...)
-		},
+	_, err = meter.Int64ObservableGauge(
+		"num_goroutines",
 		metric.WithDescription("Number of running goroutines."),
+		metric.WithUnit("{item}"),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			o.Observe(int64(runtime.NumGoroutine()), metric.WithAttributes(attributes...))
+			return nil
+		}),
 	)
+
+	// _, err = meter.NewInt64UpDownSumObserver("num_goroutines",
+	// 	func(_ context.Context, result metric.Int64ObserverResult) {
+	// 		log.Println("num_goroutines", int64(runtime.NumGoroutine()))
+	// 		result.Observe(int64(runtime.NumGoroutine()), metric.WithAttributes(attributes...)))
+	// 	},
+	// 	metric.WithDescription("Number of running goroutines."),
+	// )
 	if err != nil {
 		return err
 	}
@@ -169,12 +180,12 @@ func buildRuntimeObservers() error {
 	return nil
 }
 
-var requestsCount int64
+// var requestsCount int64
 
 func Fibonacci(ctx context.Context, n int) chan int {
-	requests.Add(ctx, 1, labels...)
+	// requests.Add(ctx, 1, labels...)
 
-	atomic.AddInt64(&requestsCount, 1)
+	// atomic.AddInt64(&requestsCount, 1)
 
 	ch := make(chan int)
 
