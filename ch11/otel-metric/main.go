@@ -75,13 +75,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// go func() {
-	// 	for {
-	// 		log.Println(requestsCount)
-	// 		time.Sleep(time.Second)
-	// 	}
-	// }()
-
 	log.Println("Browse to localhost:3000?n=6")
 
 	// Neat, huh?
@@ -102,7 +95,7 @@ func fibHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err != nil {
-		http.Error(w, "couldn't parse index n", 400)
+		http.Error(w, "couldn't parse index n", http.StatusBadRequest)
 		return
 	}
 
@@ -112,20 +105,6 @@ func fibHandler(w http.ResponseWriter, req *http.Request) {
 	result := <-Fibonacci(ctx, n)
 
 	fmt.Fprintln(w, result)
-}
-
-func parseArguments() (int, error) {
-	args := os.Args[1:]
-	if len(args) == 0 {
-		return 0, fmt.Errorf("expected an int argument")
-	}
-
-	n, err := strconv.Atoi(args[0])
-	if err != nil {
-		return 0, fmt.Errorf("can't parse argument as integer: %w", err)
-	}
-
-	return n, nil
 }
 
 func buildRequestsCounter(meter metric.Meter) error {
@@ -143,12 +122,12 @@ func buildRuntimeObservers(meter metric.Meter) error {
 	var err error
 	var m runtime.MemStats
 
-	_, err = meter.Int64UpDownSumObserver("memory_usage_bytes",
-		func(_ context.Context, result metric.Int64ObserverResult) {
+	_, err = meter.Int64ObservableUpDownCounter("fibonacci_memory_usage_bytes",
+		metric.WithInt64Callback(func(_ context.Context, result metric.Int64Observer) error {
 			runtime.ReadMemStats(&m)
-			log.Println("memory_usage_bytes", int64(m.Sys))
 			result.Observe(int64(m.Sys), metric.WithAttributes(attributes...))
-		},
+			return nil
+		}),
 		metric.WithDescription("Amount of memory used."),
 		metric.WithUnit("By"),
 	)
@@ -157,22 +136,14 @@ func buildRuntimeObservers(meter metric.Meter) error {
 	}
 
 	_, err = meter.Int64ObservableGauge(
-		"num_goroutines",
-		metric.WithDescription("Number of running goroutines."),
-		metric.WithUnit("{item}"),
+		"fibonacci_num_goroutines",
 		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
 			o.Observe(int64(runtime.NumGoroutine()), metric.WithAttributes(attributes...))
 			return nil
 		}),
+		metric.WithDescription("Number of running goroutines."),
+		metric.WithUnit("{goroutine}"),
 	)
-
-	// _, err = meter.NewInt64UpDownSumObserver("num_goroutines",
-	// 	func(_ context.Context, result metric.Int64ObserverResult) {
-	// 		log.Println("num_goroutines", int64(runtime.NumGoroutine()))
-	// 		result.Observe(int64(runtime.NumGoroutine()), metric.WithAttributes(attributes...)))
-	// 	},
-	// 	metric.WithDescription("Number of running goroutines."),
-	// )
 	if err != nil {
 		return err
 	}
@@ -180,12 +151,8 @@ func buildRuntimeObservers(meter metric.Meter) error {
 	return nil
 }
 
-// var requestsCount int64
-
 func Fibonacci(ctx context.Context, n int) chan int {
-	// requests.Add(ctx, 1, labels...)
-
-	// atomic.AddInt64(&requestsCount, 1)
+	requests.Add(ctx, 1, metric.WithAttributes(attributes...))
 
 	ch := make(chan int)
 
