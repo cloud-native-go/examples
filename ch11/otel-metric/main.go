@@ -113,6 +113,7 @@ func buildRequestsCounter(meter metric.Meter) error {
 	// Get an Int64Counter for a metric called "fibonacci_requests_total".
 	requests, err = meter.Int64Counter("fibonacci_requests_total",
 		metric.WithDescription("Total number of Fibonacci requests."),
+		metric.WithUnit("{request}"),
 	)
 
 	return err
@@ -123,9 +124,9 @@ func buildRuntimeObservers(meter metric.Meter) error {
 	var m runtime.MemStats
 
 	_, err = meter.Int64ObservableUpDownCounter("fibonacci_memory_usage_bytes",
-		metric.WithInt64Callback(func(_ context.Context, result metric.Int64Observer) error {
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
 			runtime.ReadMemStats(&m)
-			result.Observe(int64(m.Sys), metric.WithAttributes(attributes...))
+			o.Observe(int64(m.Sys), metric.WithAttributes(attributes...))
 			return nil
 		}),
 		metric.WithDescription("Amount of memory used."),
