@@ -31,11 +31,16 @@ func fileExists(filename string) bool {
 
 func TestCreateLogger(t *testing.T) {
 	const filename = "/tmp/create-logger.txt"
-	defer os.Remove(filename)
+	t.Cleanup(func() {
+		err := os.Remove(filename)
+		if err != nil {
+			return
+		}
+	})
 
 	tl, err := NewFileTransactionLogger(filename)
 	if err != nil {
-		t.Errorf("Got error: %w", err)
+		t.Errorf("Got error: %v", err)
 	}
 	if tl == nil {
 		t.Error("Logger is nil?")
@@ -48,14 +53,24 @@ func TestCreateLogger(t *testing.T) {
 
 func TestLastSequence(t *testing.T) {
 	const filename = "/tmp/last-sequence.txt"
-	defer os.Remove(filename)
+	t.Cleanup(func() {
+		err := os.Remove(filename)
+		if err != nil {
+			return
+		}
+	})
 
 	tl, err := NewFileTransactionLogger(filename)
 	if err != nil {
 		t.Error(err)
 	}
 	tl.Run()
-	defer tl.Close()
+	t.Cleanup(func() {
+		closeErr := tl.Close()
+		if closeErr != nil {
+			return
+		}
+	})
 
 	evaluateLastSequence(t, tl, 0)
 
@@ -73,14 +88,24 @@ func TestLastSequence(t *testing.T) {
 
 func TestWriteAppend(t *testing.T) {
 	const filename = "/tmp/write-append.txt"
-	defer os.Remove(filename)
+	t.Cleanup(func() {
+		err := os.Remove(filename)
+		if err != nil {
+			return
+		}
+	})
 
 	tl, err := NewFileTransactionLogger(filename)
 	if err != nil {
 		t.Error(err)
 	}
 	tl.Run()
-	defer tl.Close()
+	t.Cleanup(func() {
+		closeErr := tl.Close()
+		if closeErr != nil {
+			return
+		}
+	})
 
 	chev, cherr := tl.ReadEvents()
 	for e := range chev {
@@ -122,11 +147,21 @@ func TestWriteAppend(t *testing.T) {
 
 func TestWritePut(t *testing.T) {
 	const filename = "/tmp/write-put.txt"
-	defer os.Remove(filename)
+	t.Cleanup(func() {
+		err := os.Remove(filename)
+		if err != nil {
+			return
+		}
+	})
 
 	tl, _ := NewFileTransactionLogger(filename)
 	tl.Run()
-	defer tl.Close()
+	t.Cleanup(func() {
+		closeErr := tl.Close()
+		if closeErr != nil {
+			return
+		}
+	})
 
 	tl.WritePut("my-key", "my-value")
 	tl.WritePut("my-key", "my-value2")
