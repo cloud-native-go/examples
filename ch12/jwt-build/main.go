@@ -76,7 +76,7 @@ func buildToken(username string) (string, error) {
 
 	// Create a new token object, specifying signing method and the claims
 	// you would like it to contain.
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign and get the complete encoded token as a string using the secret
 	return token.SignedString(secret)
@@ -84,6 +84,6 @@ func buildToken(username string) (string, error) {
 
 // authenticatePassword always returns true and a nil error, just
 // for the sake of demonstration
-func authenticatePassword(username, password string) (bool, error) {
+func authenticatePassword(_, _ string) (bool, error) {
 	return true, nil
 }
