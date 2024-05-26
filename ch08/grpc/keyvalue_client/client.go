@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/cloud-native-go/ch08/grpc/keyvalue"
+	pb "github.com/cloud-native-go/examples/ch08/grpc/keyvalue"
 	"google.golang.org/grpc"
 )
 

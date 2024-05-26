@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-option go_package = "github.com/cloud-native-go/ch08/grpc/keyvalue";
+option go_package = "github.com/cloud-native-go/examples/ch08/grpc/keyvalue";
 
 // GetRequest represents a request to the key-value store for the
 // value associated with a particular key

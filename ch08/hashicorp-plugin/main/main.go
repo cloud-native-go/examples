@@ -21,7 +21,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/cloud-native-go/ch08/hashicorp-plugin/commons"
+	"github.com/cloud-native-go/examples/ch08/hashicorp-plugin/commons"
 	"github.com/hashicorp/go-plugin"
 )
 

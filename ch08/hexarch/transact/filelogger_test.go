@@ -19,6 +19,8 @@ package transact
 import (
 	"os"
 	"testing"
+
+	"github.com/cloud-native-go/examples/ch08/hexarch/core"
 )
 
 func fileExists(filename string) bool {
@@ -35,7 +37,7 @@ func TestCreateLogger(t *testing.T) {
 
 	tl, err := NewFileTransactionLogger(filename)
 	if err != nil {
-		t.Errorf("Got error: %w", err)
+		t.Errorf("Got error: %v", err)
 	}
 	if tl == nil {
 		t.Error("Logger is nil?")
@@ -152,7 +154,7 @@ func TestWritePut(t *testing.T) {
 	}
 }
 
-func evaluateLastSequence(t *testing.T, el TransactionLogger, expected uint64) {
+func evaluateLastSequence(t *testing.T, el core.TransactionLogger, expected uint64) {
 	if ls := el.LastSequence(); ls != expected {
 		t.Errorf("Last sequence mismatch (expected %d; got %d)", expected, ls)
 	} else {
