@@ -35,7 +35,7 @@ func TestCreateLogger(t *testing.T) {
 
 	tl, err := NewFileTransactionLogger(filename)
 	if err != nil {
-		t.Errorf("Got error: %w", err)
+		t.Errorf("Got error: %v", err)
 	}
 	if tl == nil {
 		t.Error("Logger is nil?")

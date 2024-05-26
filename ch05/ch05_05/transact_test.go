@@ -40,7 +40,7 @@ func TestCreateLogger(t *testing.T) {
 	}
 
 	if err != nil {
-		t.Errorf("Got error: %w", err)
+		t.Errorf("Got error: %v", err)
 	}
 
 	if !fileExists(filename) {

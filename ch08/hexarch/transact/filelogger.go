@@ -76,7 +76,7 @@ func (l *FileTransactionLogger) Run() {
 				errors <- fmt.Errorf("cannot write to log file: %w", err)
 			}
 
-			l.wg.Done()
+			l.wg.Wait()
 		}
 	}()
 }
