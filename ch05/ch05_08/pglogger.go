@@ -146,10 +146,10 @@ func (l *PostgresTransactionLogger) verifyTableExists() (bool, error) {
 	var result string
 
 	rows, err := l.db.Query(fmt.Sprintf("SELECT to_regclass('public.%s');", table))
-	defer rows.Close()
 	if err != nil {
 		return false, err
 	}
+	defer rows.Close()
 
 	for rows.Next() && result != table {
 		rows.Scan(&result)

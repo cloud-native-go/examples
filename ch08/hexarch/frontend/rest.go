@@ -63,11 +63,11 @@ func (f *restFrontEnd) keyValuePutHandler(w http.ResponseWriter, r *http.Request
 	key := vars["key"]
 
 	value, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer r.Body.Close()
 
 	err = f.store.Put(key, string(value))
 	if err != nil {
