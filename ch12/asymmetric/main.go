@@ -87,10 +87,10 @@ func main() {
 
 	exportKeys(privateKey, publicKey)
 
-	message := []byte("Hello, Cloud Native Go!")
+	plaintext := []byte("Hello, Cloud Native Go!")
 
 	// Encrypt message
-	encrypted, err := encryptRSA(publicKey, message)
+	encrypted, err := encryptRSA(publicKey, plaintext)
 	if err != nil {
 		panic(err)
 	}
