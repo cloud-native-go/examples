@@ -17,9 +17,8 @@
 package main
 
 import (
+	"errors"
 	"testing"
-
-	"github.com/go-errors/errors"
 )
 
 func TestPut(t *testing.T) {
