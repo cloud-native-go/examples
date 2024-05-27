@@ -21,17 +21,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
-
-var secret = []byte("my-super-secret-password123")
-
-func main() {
-	http.HandleFunc("/", verifyHandler)
-	http.ListenAndServe(":8000", nil)
-}
 
 func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	header := r.Header.Get("Authorization")
@@ -45,37 +35,10 @@ func verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	claims, err := verifyToken(token)
 	if err != nil {
-		log.Println("invalid authorization token:", err)
+		log.Println("Invalid authorization token:", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	fmt.Fprintf(w, "Welcome back, %s!\n", claims.Name)
-}
-
-type CustomClaims struct {
-	Name string `json:"name"`
-	jwt.RegisteredClaims
-}
-
-func keyFunc(token *jwt.Token) (any, error) {
-	return secret, nil
-}
-
-func verifyToken(tokenString string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, keyFunc)
-	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(*CustomClaims)
-	if !ok {
-		return nil, fmt.Errorf("unknown claims type")
-	}
-
-	if time.Now().After(claims.ExpiresAt.Time) {
-		return nil, fmt.Errorf("token expired")
-	}
-
-	return claims, nil
 }

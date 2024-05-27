@@ -18,49 +18,14 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secret = []byte("my-super-secret-password123")
-
-func main() {
-	http.HandleFunc("/authenticate", authenticateHandler)
-	http.ListenAndServe(":8000", nil)
-}
-
-func authenticateHandler(w http.ResponseWriter, r *http.Request) {
-	// This is required to populate r.Form.
-	if err := r.ParseForm(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Retrieve and validate the POST-ed credentials
-	username := r.Form.Get("username")
-	password := r.Form.Get("password")
-
-	// Authenticate the password, responding to errors appropriately
-	valid, err := authenticatePassword(username, password)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	} else if !valid {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	// Password is valid; build a new token
-	tokenString, err := buildToken(username)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	// Respond with the new token string
-	fmt.Fprint(w, tokenString)
+type CustomClaims struct {
+	Name string `json:"name"`
+	jwt.RegisteredClaims
 }
 
 func buildToken(username string) (string, error) {
@@ -82,8 +47,24 @@ func buildToken(username string) (string, error) {
 	return token.SignedString(secret)
 }
 
-// authenticatePassword always returns true and a nil error, just
-// for the sake of demonstration
-func authenticatePassword(_, _ string) (bool, error) {
-	return true, nil
+func keyFunc(token *jwt.Token) (any, error) {
+	return secret, nil
+}
+
+func verifyToken(tokenString string) (*CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, keyFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok {
+		return nil, fmt.Errorf("unknown claims type")
+	}
+
+	if time.Now().After(claims.ExpiresAt.Time) {
+		return nil, fmt.Errorf("token expired")
+	}
+
+	return claims, nil
 }
