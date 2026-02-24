@@ -122,6 +122,7 @@ func (l *TransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 
 	go func() {
 		var e Event
+		var lastSeq uint64 = 0
 
 		defer close(outEvent)
 		defer close(outError)
@@ -133,7 +134,7 @@ func (l *TransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 				line, "%d\t%d\t%s\t%s",
 				&e.Sequence, &e.EventType, &e.Key, &e.Value)
 
-			if l.lastSequence >= e.Sequence {
+			if lastSeq >= e.Sequence {
 				outError <- fmt.Errorf("transaction numbers out of sequence")
 				return
 			}
@@ -145,7 +146,7 @@ func (l *TransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 			}
 
 			e.Value = uv
-			l.lastSequence = e.Sequence
+			lastSeq = e.Sequence
 
 			outEvent <- e
 		}
